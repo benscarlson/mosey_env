@@ -38,12 +38,10 @@ gcsURL=${argv[1]}
 db=${argv[2]}
 outP=${argv[3]}
 
-#TODO: need to make sesid optional
-#sesid=${argv[4]}
-
-groupSize=1000000
-#TODO: Pass in as optional argument.
-table="event_clean"
+#TODO: pass in all of these as optional argument
+groupSize=100000
+table="forage_event" #TODO: probably need to pass in an sql statement or point to sql file? 
+sesid=4
 
 # echo $geePtsP
 # echo $gcsURL
@@ -69,6 +67,7 @@ do
   echo "Start processing study ${studyId}"
   echo "*******"
   
+  #studyId=76367850
   #studyId=10763606 #LifeTrack White Stork Poland (419 rows)
   #studyId=8863543 #HUJ MPIAB White Stork E-Obs (3 million rows)
   
@@ -83,16 +82,30 @@ do
   #So need to break them up. row_number returns 1..n. Subtract 1 so that the
   # resulting number of groups will be correct. Since groupSize is an integer,
   # the result will be cast to an integer (equivilant to floor() operation)
-  sql="select f.event_id as anno_id, f.study_id, e.lon, e.lat, 
-      strftime('%Y-%m-%dT%H:%M:%SZ',e.timestamp) as timestamp,
-      (row_number() over (order by f.study_id)-1)/${groupSize} anno_grp
-    from ${table} f
-    inner join event e
-    on f.event_id = e.event_id
-    where f.study_id = ${studyId}"
 
-#TODO: need to make sesid optional
-# and f.ses_id = '${sesid}'
+  #This is the old SQL I used to annotate the covid data and my schema
+  # sql="select f.event_id as anno_id, f.study_id, e.lon, e.lat, 
+  #     strftime('%Y-%m-%dT%H:%M:%SZ',e.timestamp) as timestamp,
+  #     (row_number() over (order by f.study_id)-1)/${groupSize} anno_grp
+  #   from ${table} f
+  #   inner join event e
+  #   on f.event_id = e.event_id
+  #   where f.study_id = ${studyId}"
+  
+  #This is the sql for my new schema
+  #TODO: try ordering by lon,lat instead of event_id. This will tend to group
+  # records geographically, which may increase performance. One task was
+  # failing with memory use errors it seems b/c the wide extent of the points
+  # Another approach would be to have GEE make geographic clusters.
+  sql="select f.event_id as anno_id, i.study_id, e.lon, e.lat, 
+    strftime('%Y-%m-%dT%H:%M:%SZ',e.timestamp) as timestamp, 
+    	(row_number() over (order by f.event_id)-1)/${groupSize} as anno_grp 
+    from forage_event f 
+    inner join event e on f.event_id = e.event_id
+    inner join forage_seg fs on f.fs_id = fs.fs_id 
+    inner join segment seg on fs.seg_id = seg.seg_id
+    inner join individual i on seg.individual_id = i.individual_id
+    where i.study_id = ${studyId} and fs.ses_id = ${sesid}"
  
   echo Extracting data...
 
