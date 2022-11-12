@@ -24,7 +24,7 @@ Control files:
 Parameters:
   dat: path to gee feature collection
   env: path to gee environmental asset
-  out: path to output directory on gcs. just directory, no url info or bucket
+  out: path to output directory and file on gcs. do not include file extension, url info or bucket
 
 Options:
 -h --help     Show this screen.
@@ -39,27 +39,30 @@ Options:
 #---- Input Parameters ----#
 if(interactive()) {
 
-  .wd <- '~/projects/project_template/analysis'
+  .pd <- '~/projects/ms2'
+  .wd <- file.path(.pd,'analysis/poc/mosey_env/mosey_env1')
   .seed <- NULL
   rd <- here::here
   
   #Required parameters
   #.envPF <- 'projects/map-of-life/diegoes/dist2road_USA_full' # 'NASA/ORNL/DAYMET_V4'
-  .envPF <- 'src/main/computed_layers/dist2water_month.r'
+  .envPF <- 'projects/map-of-life/benc/projects/ms2/dist2urban'
   .datPF <- 'users/benscarlson/projects/ms3/tracks/76367850'
-  .outPF <- 'benc/projects/mosey_env/annotated/76367850_dist2water_month_test'
+  .outPF <- 'benc/projects/ms2/poc/mosey_env/mosey_env1/dist2urban'
+  #.outPF <- 'benc/projects/mosey_env/annotated/76367850_dist2water_month_test'
   
   #Optional parameters
   .band <- 0 #4
   #.colEnv <- 'dist2road' #  'tmax'
-  .colEnv <- 'dist2water_month'
+  .colEnv <- 'dist2urban'
   .groups <- NULL #only run for these groups. handy for testing
   .npts <- NULL
 } else {
   suppressWarnings(
     suppressPackageStartupMessages({
         library(docopt)
-        library(rprojroot)}))
+        library(rprojroot)
+  }))
 
   ag <- docopt(doc, version = '0.1\n')
 
@@ -95,20 +98,25 @@ t0 <- Sys.time()
 
 source(rd('src/startup.r'))
 
+#Source all files in the auto load funs directory
+list.files(rd('src/funs/auto'),full.names=TRUE) %>% walk(source)
+#source(rd('src/main/dist2water_month.r'))
+
+#For some reason I need to set these before I load rgee
+# I didn't have to do this before
+# UPDATE: after installing gcloud via brew, I don't have to do this anymore
+#reticulate::use_python("/Users/benc/.pyenv/versions/gee/bin/python", required = TRUE)
+#reticulate::use_virtualenv('/Users/benc/.pyenv/versions/gee',required=TRUE)
+
 suppressWarnings(
   suppressPackageStartupMessages({
     library(rgee)
   }))
 
-#Source all files in the auto load funs directory
-list.files(rd('src/funs/auto'),full.names=TRUE) %>% walk(source)
-#source(rd('src/main/dist2water_month.r'))
-
-
 #Initialize gee
 suppressMessages(ee_check(quiet=TRUE))
 ee_Initialize(quiet=TRUE)
-
+  
 #TODO: do a check to make sure rgee initialized correctly
 
 #---- Local parameters ----#
